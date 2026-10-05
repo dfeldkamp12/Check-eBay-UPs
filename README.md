@@ -83,6 +83,14 @@ python batch_processor.py
 
 If a file name already exists, `_a`, `_b` and so on are added instead of overwriting.
 
+## Using the scripts on iPhone (Pyto)
+
+Pyto has no git, so `update_from_github.py` downloads the latest `Quick_Scan.py`, `Scan_Inventory.py` and itself from this repo into Pyto's folder.
+
+After changing a script on the Mac, push to GitHub, then run `update_from_github.py` in Pyto.
+
+The first time `Quick_Scan.py` runs on the phone, it asks for the RapidAPI key and saves it in `rapidapi_key.txt` next to the script. The update script never touches that file.
+
 ## Notes
 
 - Each lookup uses one RapidAPI request. Check your RapidAPI plan limits before processing large files.

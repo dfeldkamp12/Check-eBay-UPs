@@ -1,3 +1,4 @@
+import getpass
 import os
 import requests
 import json
@@ -13,7 +14,12 @@ def load_api_key():
         return key.strip()
     if KEY_FILE.exists():
         return KEY_FILE.read_text().strip()
-    raise SystemExit(f"No RapidAPI key found. Put it in {KEY_FILE} or set RAPIDAPI_KEY.")
+    # First run on a new device (e.g. Pyto): ask once and save it next to the script
+    key = getpass.getpass("RapidAPI key (saved for next time): ").strip()
+    if not key:
+        raise SystemExit(f"No RapidAPI key found. Put it in {KEY_FILE} or set RAPIDAPI_KEY.")
+    KEY_FILE.write_text(key + "\n")
+    return key
 
 # ---------------------------------------------------------
 # 1. RapidAPI lookup (returns lowest price, sold count, and title)
