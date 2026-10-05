@@ -95,7 +95,9 @@ If a file name already exists, `_a`, `_b` and so on are added instead of overwri
 
 Pyto has no git, so `update_from_github.py` downloads the latest `Quick_Scan.py`, `Scan_Inventory.py` and itself from this repo into Pyto's folder.
 
-After changing a script on the Mac, push to GitHub, then run `update_from_github.py` in Pyto.
+`Quick_Scan.py` checks GitHub every time it starts and downloads a newer version if there is one, so after pushing from the Mac you only need to run `Quick_Scan.py` on the phone. With no signal it skips the check and runs the copy already on the phone. Run `update_from_github.py` by hand to update `Scan_Inventory.py`.
+
+The update never runs in the Mac's git folder, so it cannot overwrite unpushed edits there.
 
 While the repo is public, no GitHub login is needed. If the repo is made private, `update_from_github.py` asks once for a GitHub fine-grained token with read-only **Contents** access to this repo, and saves it in `github_token.txt`.
 
