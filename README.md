@@ -1,6 +1,6 @@
 # Check eBay UPCs
 
-Scripts for deciding what to buy for eBay resale. You scan barcodes, the scripts look up recent eBay sold prices, and you get the most you should pay for each item.
+Scripts for deciding what to buy for eBay resale. You scan barcodes, the scripts look up the product and its recent eBay sold prices, and you get the most you should pay for each item.
 
 | Script | What it does |
 |---|---|
@@ -10,11 +10,16 @@ Scripts for deciding what to buy for eBay resale. You scan barcodes, the scripts
 
 ## How the suggested price works
 
-Each lookup uses the **lowest recent eBay sold price** for the barcode (UPC) and works backward:
+Each lookup takes two steps:
+
+1. **Barcode → product name.** The UPC is looked up in [UPCitemdb](https://www.upcitemdb.com) and the name is shortened to its first six words, for example `Animal Crossing New Horizons Nintendo Switch`. eBay sellers rarely put barcodes in listing titles, so searching eBay by UPC alone finds almost nothing.
+2. **Product name → eBay sold prices.** The name is searched in eBay sold listings, and the **median sold price** is used to work backward:
 
 ```
-Max purchase price = lowest sold price − 16% eBay fees − $7.00 shipping − $3.00 minimum profit
+Max purchase price = median sold price − 16% eBay fees − $7.00 shipping − $3.00 minimum profit
 ```
+
+The median is the typical sale. The lowest sale is still shown for reference, but it is usually a broken, parts-only or case-only listing.
 
 Change these defaults in `suggest_purchase_price()` in `Quick_Scan.py`.
 
@@ -58,12 +63,14 @@ On a Mac the file is saved in the folder you run the script from. On iPhone (Pyt
 python Quick_Scan.py
 ```
 
-Scan or type a UPC to see:
+Scan a UPC, or type a product name directly, to see:
 
-- Item title
-- Lowest sold price
+- The name that was searched, and an example sold listing
+- Median and lowest sold price
 - Number sold in the last 90 days
 - Suggested max purchase price
+
+If the barcode is not in UPCitemdb, it asks you to type the product name instead.
 
 Press Enter on a blank line to exit.
 
@@ -76,8 +83,9 @@ python batch_processor.py
 1. Put Excel files from `Scan_Inventory.py` in iCloud Drive → `eBay Scans`.
 2. Run the script. For each file it:
    - Reads the barcodes in column B and skips anything that is not a valid 8, 12, 13 or 14-digit UPC.
-   - Adds title, lowest sold price, sold count and suggested max purchase price.
-   - Sorts rows by **lowest sold price × sold count**, so the best sellers come first.
+   - Adds product name, an example sold listing, median and lowest sold price, sold count and suggested max purchase price.
+   - Adds a **Status** column: `OK`, `Barcode not found`, `No eBay sales found`, or `Not checked` if the daily barcode lookup limit was reached.
+   - Sorts rows by **median sold price × sold count**, so the best sellers come first.
    - Saves the result to `eBay Scans/Results/` as `<name>_Results.xlsx`.
    - Moves the original file to `eBay Scans/Archive/`.
 
@@ -95,5 +103,5 @@ The first time `Quick_Scan.py` runs on the phone, it asks for the RapidAPI key a
 
 ## Notes
 
-- Each lookup uses one RapidAPI request. Check your RapidAPI plan limits before processing large files.
-- Barcodes the API cannot find are left blank in the results.
+- UPCitemdb's free tier allows **100 barcode lookups per day**, with no key needed. If `batch_processor.py` reaches the limit, the remaining rows are marked `Not checked` and the original file is left in `eBay Scans` instead of being archived, so you can run it again the next day.
+- Each eBay price search uses one RapidAPI request. Check your RapidAPI plan limits before processing large files.

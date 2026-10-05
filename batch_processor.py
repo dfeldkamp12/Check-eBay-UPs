@@ -8,7 +8,10 @@ from time import sleep
 # ---------------------------------------------------------
 # 1. Import your existing API + pricing logic
 # ---------------------------------------------------------
-from Quick_Scan import get_price_data_from_api, suggest_purchase_price, load_api_key
+from Quick_Scan import (
+    get_price_data_from_api, suggest_purchase_price, load_api_key,
+    lookup_product_name, LookupLimitReached,
+)
 
 
 # ---------------------------------------------------------
@@ -64,7 +67,8 @@ def set_column_widths(ws, width=40):
 def process_excel_file(filepath, api_key):
     print(f"\nProcessing: {filepath.name}")
 
-    df = pd.read_excel(filepath)
+    # dtype=str keeps leading zeros (045496596439 would otherwise become 45496596439)
+    df = pd.read_excel(filepath, dtype=str)
 
     # Ensure Column B exists
     if df.shape[1] < 2:
@@ -72,11 +76,16 @@ def process_excel_file(filepath, api_key):
         return
 
     # Add new columns
-    df["Title"] = ""
+    df["Product Name"] = ""
+    df["Example Sold Listing"] = ""
+    df["Median Sold Price"] = ""
     df["Lowest Sold Price"] = ""
     df["Shipping Default"] = "$7.00"
     df["Sold Count (last 90 days)"] = ""
     df["Suggested Max Purchase Price"] = ""
+    df["Status"] = ""
+
+    limit_reached = False
 
     # Iterate through rows
     for idx, row in df.iterrows():
@@ -88,38 +97,55 @@ def process_excel_file(filepath, api_key):
         if not is_valid_upc(sku):
             continue
 
+        if limit_reached:
+            df.at[idx, "Status"] = "Not checked: daily barcode lookup limit reached"
+            continue
+
         # Build timestamp + filename
         timestamp = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
         combined_stamp = f"{timestamp} | {filepath.name}"
         df.at[idx, "Timestamp"] = combined_stamp
 
         try:
-            lowest_price, sold_count, title = get_price_data_from_api(sku, api_key)
+            # eBay search needs a product name; a bare UPC finds almost nothing
+            name = lookup_product_name(sku)
+            if not name:
+                df.at[idx, "Status"] = "Barcode not found"
+                continue
+            df.at[idx, "Product Name"] = name
 
-            if lowest_price is None:
+            result = get_price_data_from_api(name, api_key)
+            if result is None:
+                df.at[idx, "Status"] = "No eBay sales found"
                 continue
 
-            max_price = suggest_purchase_price(lowest_price)
+            df.at[idx, "Example Sold Listing"] = result["title"]
+            df.at[idx, "Median Sold Price"] = round(result["median_price"], 2)
+            if result["lowest_price"] is not None:
+                df.at[idx, "Lowest Sold Price"] = round(result["lowest_price"], 2)
+            df.at[idx, "Sold Count (last 90 days)"] = result["sold_count"]
+            df.at[idx, "Suggested Max Purchase Price"] = suggest_purchase_price(result["median_price"])
+            df.at[idx, "Status"] = "OK"
 
-            df.at[idx, "Title"] = title
-            df.at[idx, "Lowest Sold Price"] = round(lowest_price, 2)
-            df.at[idx, "Sold Count (last 90 days)"] = sold_count
-            df.at[idx, "Suggested Max Purchase Price"] = max_price
-
+        except LookupLimitReached as e:
+            print(f"⚠️ {e}. Remaining rows are marked and the file stays in place to rerun tomorrow.")
+            df.at[idx, "Status"] = "Not checked: daily barcode lookup limit reached"
+            limit_reached = True
+            continue
         except Exception as e:
             print(f"Error processing SKU {sku}: {e}")
+            df.at[idx, "Status"] = f"Error: {e}"
             continue
 
         sleep(0.1)  # Faster rate limiting
 
 
     # ---------------------------------------------------------
-    #  SORTING LOGIC: Score = Lowest Sold Price × Sold Count
+    #  SORTING LOGIC: Score = Median Sold Price × Sold Count
     # ---------------------------------------------------------
-    df["Lowest Sold Price"] = pd.to_numeric(df["Lowest Sold Price"], errors="coerce").fillna(0)
-    df["Sold Count (last 90 days)"] = pd.to_numeric(df["Sold Count (last 90 days)"], errors="coerce").fillna(0)
-
-    df["Score"] = df["Lowest Sold Price"] * df["Sold Count (last 90 days)"]
+    median = pd.to_numeric(df["Median Sold Price"], errors="coerce").fillna(0)
+    sold = pd.to_numeric(df["Sold Count (last 90 days)"], errors="coerce").fillna(0)
+    df = df.assign(**{"Median Sold Price": median, "Sold Count (last 90 days)": sold, "Score": median * sold})
 
     df = df.sort_values(by="Score", ascending=False)
 
@@ -140,6 +166,10 @@ def process_excel_file(filepath, api_key):
     wb.save(result_path)
 
     print(f"✔ Results saved to: {result_path.name}")
+
+    if limit_reached:
+        print(f"📄 Left {filepath.name} in place so the unchecked rows can be rerun.")
+        return
 
     # Move original file to Archive
     archive_path = ARCHIVE_DIR / filepath.name
