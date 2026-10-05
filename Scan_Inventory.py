@@ -48,4 +48,14 @@ def main():
         print("\n🛑 Stopped. All scans saved.")
 
 if __name__ == "__main__":
-    main()
+    # On the phone, fetch the latest version from GitHub first (see update_from_github.py)
+    try:
+        import importlib
+        import update_from_github
+        importlib.reload(update_from_github)  # Pyto can keep an old copy loaded between runs
+    except ImportError:
+        update_from_github = None
+    if update_from_github and hasattr(update_from_github, "run_latest"):
+        update_from_github.run_latest(__file__, main, globals())
+    else:
+        main()

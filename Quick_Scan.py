@@ -173,32 +173,15 @@ def main():
 # ---------------------------------------------------------
 # 5. Run
 # ---------------------------------------------------------
-def auto_update():
-    """
-    On the phone, fetch the latest scripts from GitHub before running.
-    Returns True if this script changed, so the caller can rerun the new copy.
-    Offline or any error: carry on with the current version.
-    """
-    try:
-        import update_from_github as updater
-    except ImportError:
-        return False
-    if updater.is_git_checkout():
-        return False
-    try:
-        changed = updater.update_all(timeout=5, ask_token=False, verbose=False)
-    except (Exception, SystemExit) as e:
-        print(f"(Couldn't check for updates: {e}. Using the current version.)\n")
-        return False
-    if changed:
-        print(f"⬇️ Updated from GitHub: {', '.join(changed)}\n")
-    return "Quick_Scan.py" in changed
-
-
 if __name__ == "__main__":
-    # _SKIP_UPDATE is set when rerunning the freshly downloaded copy
-    if not globals().get("_SKIP_UPDATE") and auto_update():
-        import runpy
-        runpy.run_path(__file__, init_globals={"_SKIP_UPDATE": True}, run_name="__main__")
+    # On the phone, fetch the latest version from GitHub first (see update_from_github.py)
+    try:
+        import importlib
+        import update_from_github
+        importlib.reload(update_from_github)  # Pyto can keep an old copy loaded between runs
+    except ImportError:
+        update_from_github = None
+    if update_from_github and hasattr(update_from_github, "run_latest"):
+        update_from_github.run_latest(__file__, main, globals())
     else:
         main()

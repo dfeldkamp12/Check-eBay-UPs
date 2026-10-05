@@ -1,9 +1,9 @@
 """
 Download the latest scripts from GitHub into this folder.
 
-Made for Pyto on iPhone, which has no git. Quick_Scan.py calls this
-automatically at startup; run it by hand to update the other scripts or
-if the automatic check fails. Your rapidapi_key.txt is never touched.
+Made for Pyto on iPhone, which has no git. Quick_Scan.py and
+Scan_Inventory.py call run_latest() at startup, so they update themselves;
+run this file by hand if the automatic check fails. Your rapidapi_key.txt is never touched.
 
 A public repo needs no login. If the repo is private, it asks once for a
 GitHub token (read-only access to this repo) and saves it in
@@ -100,6 +100,29 @@ def update_all(timeout=20, ask_token=True, verbose=True):
         if verbose:
             print(f"✔ {name}: {status}")
     return changed
+
+
+def run_latest(script_file, main, script_globals):
+    """
+    Called from a script's __main__ block: update from GitHub, then run the
+    script's main(). If the script itself changed, rerun the new copy instead.
+    Offline or on any error, carry on with the current version.
+    """
+    # _SKIP_UPDATE is set when rerunning the freshly downloaded copy
+    if script_globals.get("_SKIP_UPDATE") or is_git_checkout():
+        return main()
+    try:
+        changed = update_all(timeout=5, ask_token=False, verbose=False)
+    except (Exception, SystemExit) as e:
+        print(f"(Couldn't check for updates: {e}. Using the current version.)\n")
+        return main()
+    if changed:
+        print(f"⬇️ Updated from GitHub: {', '.join(changed)}\n")
+    if Path(script_file).name in changed:
+        import runpy
+        runpy.run_path(script_file, init_globals={"_SKIP_UPDATE": True}, run_name="__main__")
+    else:
+        main()
 
 
 def main():
