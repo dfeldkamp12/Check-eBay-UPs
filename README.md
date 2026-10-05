@@ -89,7 +89,7 @@ Pyto has no git, so `update_from_github.py` downloads the latest `Quick_Scan.py`
 
 After changing a script on the Mac, push to GitHub, then run `update_from_github.py` in Pyto.
 
-The repo is private, so the first run of `update_from_github.py` asks for a GitHub fine-grained token with read-only **Contents** access to this repo, and saves it in `github_token.txt`.
+While the repo is public, no GitHub login is needed. If the repo is made private, `update_from_github.py` asks once for a GitHub fine-grained token with read-only **Contents** access to this repo, and saves it in `github_token.txt`.
 
 The first time `Quick_Scan.py` runs on the phone, it asks for the RapidAPI key and saves it in `rapidapi_key.txt` next to the script. Both files are listed in `.gitignore`, and the update script never overwrites them.
 
