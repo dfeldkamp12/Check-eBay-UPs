@@ -1,4 +1,5 @@
 rapidapi_key.txt
+github_token.txt
 __pycache__/
 *.py[cod]
 .DS_Store
